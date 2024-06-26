@@ -42,10 +42,18 @@ func HandleClient(conn net.Conn) {
 	}
 	request := string(buf[:n])
 	//fmt.Println("Received data:\n", request)
-	path := strings.Fields(request)
+	path := strings.Fields(request)[1]
 
-	if path[1] == "/" {
+	if path == "/" {
 		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
+		if err != nil {
+			fmt.Println("Error writing 200 to connection: ", err)
+			return
+		}
+	} else if strings.Contains(path, "/echo/") {
+		str := strings.Split(path, "/")[2]
+		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n %s", len([]byte(str)), str)
+		_, err = conn.Write([]byte(response))
 		if err != nil {
 			fmt.Println("Error writing 200 to connection: ", err)
 			return
