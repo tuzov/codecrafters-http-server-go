@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -50,6 +51,18 @@ func HandleClient(conn net.Conn) {
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
 	case path == "/user-agent":
 		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(request.UserAgent()), request.UserAgent())
+	case strings.HasPrefix(path, "/files/"):
+		filename := "/tmp/data/codecrafters.io/http-server-tester/" + strings.Split(path, "/")[2]
+		if _, err := os.Stat(filename); errors.Is(err, os.ErrNotExist) {
+			response = "HTTP/1.1 404 Not Found\r\n\r\n"
+		} else {
+			dat, err := os.ReadFile(filename)
+			if err != nil {
+				fmt.Println("Error reading file")
+			}
+			content := string(dat)
+			response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(content), content)
+		}
 	case path == "/":
 		response = "HTTP/1.1 200 OK\r\n\r\n"
 	default:
