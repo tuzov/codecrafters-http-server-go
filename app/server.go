@@ -46,67 +46,61 @@ func HandleClient(conn net.Conn) {
 	}
 
 	var response string
-	var responseBody []byte
-
 	switch request.Method {
 	case "GET":
-		response, responseBody = HandleGet(request)
+		response = HandleGet(request)
 	case "POST":
-		response, responseBody = HandlePost(request)
+		response = HandlePost(request)
 	default:
 		response = "HTTP/1.1 405 Method Not Allowed\r\n\r\n"
-		responseBody = nil
 	}
+
 	_, err = conn.Write([]byte(response))
-	_, err = conn.Write(responseBody)
 	if err != nil {
 		fmt.Println("Error writing to connection: ", err)
 		return
 	}
 }
 
-func HandlePost(request *http.Request) (string, []byte) {
+func HandlePost(request *http.Request) string {
 	filename := "/tmp/data/codecrafters.io/http-server-tester/" + strings.Split(request.URL.Path, "/")[2]
 	body, _ := io.ReadAll(request.Body)
 	err := os.WriteFile(filename, body, 0666)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return fmt.Sprintf("HTTP/1.1 201 Created\r\n\r\n"), nil
+	return fmt.Sprintf("HTTP/1.1 201 Created\r\n\r\n")
 }
 
-func HandleGet(request *http.Request) (string, []byte) {
+func HandleGet(request *http.Request) string {
 	switch path := request.URL.Path; {
 	case strings.HasPrefix(path, "/echo/"):
 		str := strings.Split(path, "/")[2]
 		compression := request.Header.Get("Accept-Encoding")
 		if strings.Contains(compression, "gzip") {
-			//compressed := gzipCompress([]byte(str))
 			var buffer bytes.Buffer
 			w := gzip.NewWriter(&buffer)
 			w.Write([]byte(str))
 			w.Close()
-			compressed := buffer.Bytes()
-			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n", len(compressed))
-			return response, compressed
+			response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n%s", len(buffer.String()), buffer.String())
+			return response
 		} else {
-			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n", len([]byte(str))), []byte(str)
+			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
 		}
-
 	case path == "/user-agent":
-		return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n", len(request.UserAgent())), []byte(request.UserAgent())
+		return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(request.UserAgent()), request.UserAgent())
 	case strings.HasPrefix(path, "/files/"):
 		filename := "/tmp/data/codecrafters.io/http-server-tester/" + strings.Split(path, "/")[2]
 		dat, err := os.ReadFile(filename)
 		fmt.Println(dat, string(dat))
 		if err != nil {
-			return "HTTP/1.1 404 Not Found\r\n\r\n", nil
+			return "HTTP/1.1 404 Not Found\r\n\r\n"
 		} else {
-			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n", len(dat)), dat
+			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: application/octet-stream\r\nContent-Length: %d\r\n\r\n%s", len(dat), dat)
 		}
 	case path == "/":
-		return "HTTP/1.1 200 OK\r\n\r\n", nil
+		return "HTTP/1.1 200 OK\r\n\r\n"
 	default:
-		return "HTTP/1.1 404 Not Found\r\n\r\n", nil
+		return "HTTP/1.1 404 Not Found\r\n\r\n"
 	}
 }
