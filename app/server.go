@@ -75,7 +75,7 @@ func HandleGet(request *http.Request) string {
 	case strings.HasPrefix(path, "/echo/"):
 		str := strings.Split(path, "/")[2]
 		compression := request.Header.Get("Accept-Encoding")
-		if compression == "gzip" {
+		if strings.Contains(compression, "gzip") {
 			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
 		} else {
 			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
