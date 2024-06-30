@@ -58,6 +58,15 @@ func HandleClient(conn net.Conn) {
 			fmt.Println("Error writing 200 to connection: ", err)
 			return
 		}
+	} else if strings.Contains(path, "/user-agent") {
+		parts := strings.Split(request, "\r\n")
+		headerPayload := strings.Split(parts[3], ":")
+		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(headerPayload[1][1:])), headerPayload[1][1:])
+		_, err = conn.Write([]byte(response))
+		if err != nil {
+			fmt.Println("Error writing 200 to connection: ", err)
+			return
+		}
 	} else {
 		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
 		if err != nil {
