@@ -1,8 +1,10 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 )
@@ -19,64 +21,44 @@ func main() {
 	defer l.Close()
 
 	fmt.Println("Server is listening on port 4221")
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
 
-	conn, err := l.Accept()
-	if err != nil {
-		fmt.Println("Error accepting connection: ", err.Error())
-		os.Exit(1)
+		go HandleClient(conn)
 	}
-
-	HandleClient(conn)
-
 }
 
 func HandleClient(conn net.Conn) {
 	defer conn.Close()
 
 	// Read data
-	buf := make([]byte, 1024)
-	n, err := conn.Read(buf)
+	request, err := http.ReadRequest(bufio.NewReader(conn))
 	if err != nil {
-		fmt.Println("Error reading from connection: ", err)
+		fmt.Println("Error reading request. ", err.Error())
 		return
 	}
-	request := string(buf[:n])
-	//fmt.Println("Received data:\n", request)
-	path := strings.Fields(request)[1]
 
-	if path == "/" {
-		_, err = conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
-		if err != nil {
-			fmt.Println("Error writing 200 to connection: ", err)
-			return
-		}
-	} else if strings.Contains(path, "/echo/") {
+	var response string
+
+	switch path := request.URL.Path; {
+	case strings.HasPrefix(path, "/echo/"):
 		str := strings.Split(path, "/")[2]
-		response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
-		_, err = conn.Write([]byte(response))
-		if err != nil {
-			fmt.Println("Error writing 200 to connection: ", err)
-			return
-		}
-	} else if strings.Contains(path, "/user-agent") {
-		parts := strings.Split(request, "\r\n")
-		for _, j := range parts {
-			if strings.Contains(j, "User-Agent:") {
-				headerPayload := strings.Split(j, ": ")
-				response := fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(headerPayload[1])), headerPayload[1])
-				_, err = conn.Write([]byte(response))
-				if err != nil {
-					fmt.Println("Error writing 200 to connection: ", err)
-					return
-				}
-			}
-		}
+		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
+	case path == "/user-agent":
+		response = fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(request.UserAgent()), request.UserAgent())
+	case path == "/":
+		response = "HTTP/1.1 200 OK\r\n\r\n"
+	default:
+		response = "HTTP/1.1 404 Not Found\r\n\r\n"
+	}
 
-	} else {
-		_, err = conn.Write([]byte("HTTP/1.1 404 Not Found\r\n\r\n"))
-		if err != nil {
-			fmt.Println("Error writing 404 to connection: ", err)
-			return
-		}
+	_, err = conn.Write([]byte(response))
+	if err != nil {
+		fmt.Println("Error writing to connection: ", err)
+		return
 	}
 }
