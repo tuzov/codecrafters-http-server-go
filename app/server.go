@@ -33,6 +33,7 @@ func main() {
 		go HandleClient(conn)
 	}
 }
+
 func HandleClient(conn net.Conn) {
 	defer conn.Close()
 	// Read data
@@ -73,7 +74,13 @@ func HandleGet(request *http.Request) string {
 	switch path := request.URL.Path; {
 	case strings.HasPrefix(path, "/echo/"):
 		str := strings.Split(path, "/")[2]
-		return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
+		compression := request.Header.Get("Accept-Encoding")
+		if compression == "gzip" {
+			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: gzip\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
+		} else {
+			return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len([]byte(str)), str)
+		}
+
 	case path == "/user-agent":
 		return fmt.Sprintf("HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: %d\r\n\r\n%s", len(request.UserAgent()), request.UserAgent())
 	case strings.HasPrefix(path, "/files/"):
